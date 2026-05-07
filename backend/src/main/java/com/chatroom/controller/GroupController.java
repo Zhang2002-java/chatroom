@@ -46,6 +46,11 @@ public class GroupController {
         return Result.ok();
     }
 
+    @PostMapping("/{id}/invite")
+    public Result<?> inviteFriends(@PathVariable Long id, @RequestBody List<Long> friendIds) {
+        return Result.ok(groupService.inviteFriends(id, friendIds, getCurrentUserId()));
+    }
+
     @DeleteMapping("/{id}")
     public Result<?> deleteGroup(@PathVariable Long id) {
         groupService.deleteGroup(id, getCurrentUserId());

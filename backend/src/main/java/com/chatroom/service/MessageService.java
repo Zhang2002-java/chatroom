@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.chatroom.entity.Message;
 
 import java.util.List;
+import java.util.Map;
 
 public interface MessageService {
     Page<Message> getMessages(Long targetId, String chatType, int page, int size, Long currentUserId);

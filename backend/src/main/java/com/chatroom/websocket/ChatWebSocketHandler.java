@@ -257,6 +257,15 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    public void notifyGroup(Long groupId, ObjectNode notification) {
+        LambdaQueryWrapper<GroupMember> memberWrapper = new LambdaQueryWrapper<>();
+        memberWrapper.eq(GroupMember::getGroupId, groupId);
+        java.util.List<GroupMember> members = groupMemberMapper.selectList(memberWrapper);
+        for (GroupMember member : members) {
+            notifyUser(member.getUserId(), notification);
+        }
+    }
+
     public void notifyUser(Long userId, ObjectNode notification) {
         WebSocketSession session = userSessions.get(userId);
         if (session != null && session.isOpen()) {

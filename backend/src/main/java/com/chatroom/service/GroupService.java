@@ -11,4 +11,5 @@ public interface GroupService {
     void deleteGroup(Long groupId, Long operatorId);
     List<Map<String, Object>> getMyGroups(Long userId);
     List<Map<String, Object>> getMembers(Long groupId);
+    Map<String, Object> inviteFriends(Long groupId, List<Long> friendIds, Long operatorId);
 }

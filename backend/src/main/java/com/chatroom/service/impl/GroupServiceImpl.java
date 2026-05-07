@@ -5,6 +5,9 @@ import com.chatroom.common.ApiException;
 import com.chatroom.entity.*;
 import com.chatroom.mapper.*;
 import com.chatroom.service.GroupService;
+import com.chatroom.websocket.ChatWebSocketHandler;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Service;
 import java.util.*;
 
@@ -14,9 +17,11 @@ public class GroupServiceImpl implements GroupService {
     private final GroupInfoMapper groupInfoMapper;
     private final GroupMemberMapper groupMemberMapper;
     private final UserMapper userMapper;
+    private final ChatWebSocketHandler wsHandler;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public GroupServiceImpl(GroupInfoMapper gim, GroupMemberMapper gmm, UserMapper um) {
-        this.groupInfoMapper = gim; this.groupMemberMapper = gmm; this.userMapper = um;
+    public GroupServiceImpl(GroupInfoMapper gim, GroupMemberMapper gmm, UserMapper um, ChatWebSocketHandler wsh) {
+        this.groupInfoMapper = gim; this.groupMemberMapper = gmm; this.userMapper = um; this.wsHandler = wsh;
     }
 
     @Override
@@ -36,6 +41,10 @@ public class GroupServiceImpl implements GroupService {
         GroupInfo group = groupInfoMapper.selectById(groupId);
         if (group == null) throw new ApiException("群组不存在");
 
+        LambdaQueryWrapper<GroupMember> opWrapper = new LambdaQueryWrapper<>();
+        opWrapper.eq(GroupMember::getGroupId, groupId).eq(GroupMember::getUserId, operatorId);
+        if (groupMemberMapper.selectCount(opWrapper) == 0) throw new ApiException("只有群成员才能邀请他人");
+
         LambdaQueryWrapper<GroupMember> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(GroupMember::getGroupId, groupId).eq(GroupMember::getUserId, userId);
         if (groupMemberMapper.selectCount(wrapper) > 0) throw new ApiException("用户已在群中");
@@ -43,6 +52,19 @@ public class GroupServiceImpl implements GroupService {
         GroupMember member = new GroupMember();
         member.setGroupId(groupId); member.setUserId(userId); member.setRole("member");
         groupMemberMapper.insert(member);
+
+        User opUser = userMapper.selectById(operatorId);
+        User newUser = userMapper.selectById(userId);
+        ObjectNode notification = objectMapper.createObjectNode()
+                .put("type", "GROUP_MEMBER_ADDED")
+                .put("groupId", groupId)
+                .put("groupName", group.getName())
+                .put("operatorId", operatorId)
+                .put("operatorNickname", opUser != null ? opUser.getNickname() : "")
+                .put("userId", userId)
+                .put("nickname", newUser != null ? newUser.getNickname() : "")
+                .put("avatar", newUser != null ? newUser.getAvatar() : "");
+        wsHandler.notifyGroup(groupId, notification);
     }
 
     @Override
@@ -52,14 +74,28 @@ public class GroupServiceImpl implements GroupService {
         GroupMember member = groupMemberMapper.selectOne(wrapper);
         if (member == null) throw new ApiException("成员不在群中");
 
-        if (userId.equals(operatorId) || "owner".equals(member.getRole())) {
-            if ("owner".equals(member.getRole()) && !userId.equals(operatorId)) {
-                throw new ApiException("不能移除群主");
-            }
-            groupMemberMapper.deleteById(member);
-        } else {
-            throw new ApiException("无权操作");
-        }
+        GroupInfo group = groupInfoMapper.selectById(groupId);
+        if (group == null) throw new ApiException("群组不存在");
+
+        boolean isSelfLeave = userId.equals(operatorId);
+        boolean isOwnerOperate = group.getOwnerId().equals(operatorId);
+
+        if (!isSelfLeave && !isOwnerOperate) throw new ApiException("只有群主可以移除成员");
+        if (!isSelfLeave && "owner".equals(member.getRole())) throw new ApiException("不能移除群主");
+
+        groupMemberMapper.deleteById(member);
+
+        User opUser = userMapper.selectById(operatorId);
+        User removedUser = userMapper.selectById(userId);
+        ObjectNode notification = objectMapper.createObjectNode()
+                .put("type", "GROUP_MEMBER_REMOVED")
+                .put("groupId", groupId)
+                .put("groupName", group.getName())
+                .put("operatorId", operatorId)
+                .put("operatorNickname", opUser != null ? opUser.getNickname() : "")
+                .put("userId", userId)
+                .put("nickname", removedUser != null ? removedUser.getNickname() : "");
+        wsHandler.notifyGroup(groupId, notification);
     }
 
     @Override
@@ -68,10 +104,19 @@ public class GroupServiceImpl implements GroupService {
         if (group == null) throw new ApiException("群组不存在");
         if (!group.getOwnerId().equals(operatorId)) throw new ApiException("只有群主可以解散群组");
 
-        LambdaQueryWrapper<GroupMember> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(GroupMember::getGroupId, groupId);
-        groupMemberMapper.delete(wrapper);
+        List<GroupMember> members = groupMemberMapper.selectList(
+                new LambdaQueryWrapper<GroupMember>().eq(GroupMember::getGroupId, groupId));
+
+        groupMemberMapper.delete(new LambdaQueryWrapper<GroupMember>().eq(GroupMember::getGroupId, groupId));
         groupInfoMapper.deleteById(groupId);
+
+        ObjectNode notification = objectMapper.createObjectNode()
+                .put("type", "GROUP_DELETED")
+                .put("groupId", groupId)
+                .put("groupName", group.getName());
+        for (GroupMember member : members) {
+            wsHandler.notifyUser(member.getUserId(), notification);
+        }
     }
 
     @Override
@@ -110,6 +155,52 @@ public class GroupServiceImpl implements GroupService {
                 result.add(map);
             }
         }
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> inviteFriends(Long groupId, List<Long> friendIds, Long operatorId) {
+        GroupInfo group = groupInfoMapper.selectById(groupId);
+        if (group == null) throw new ApiException("群组不存在");
+
+        LambdaQueryWrapper<GroupMember> opWrapper = new LambdaQueryWrapper<>();
+        opWrapper.eq(GroupMember::getGroupId, groupId).eq(GroupMember::getUserId, operatorId);
+        if (groupMemberMapper.selectCount(opWrapper) == 0) throw new ApiException("只有群成员才能邀请好友");
+
+        User opUser = userMapper.selectById(operatorId);
+        int addedCount = 0;
+        List<String> skipped = new ArrayList<>();
+
+        for (Long friendId : friendIds) {
+            LambdaQueryWrapper<GroupMember> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(GroupMember::getGroupId, groupId).eq(GroupMember::getUserId, friendId);
+            if (groupMemberMapper.selectCount(wrapper) > 0) {
+                User u = userMapper.selectById(friendId);
+                skipped.add(u != null ? u.getNickname() : friendId.toString());
+                continue;
+            }
+
+            GroupMember member = new GroupMember();
+            member.setGroupId(groupId); member.setUserId(friendId); member.setRole("member");
+            groupMemberMapper.insert(member);
+            addedCount++;
+
+            User newUser = userMapper.selectById(friendId);
+            ObjectNode notification = objectMapper.createObjectNode()
+                    .put("type", "GROUP_MEMBER_ADDED")
+                    .put("groupId", groupId)
+                    .put("groupName", group.getName())
+                    .put("operatorId", operatorId)
+                    .put("operatorNickname", opUser != null ? opUser.getNickname() : "")
+                    .put("userId", friendId)
+                    .put("nickname", newUser != null ? newUser.getNickname() : "")
+                    .put("avatar", newUser != null ? newUser.getAvatar() : "");
+            wsHandler.notifyGroup(groupId, notification);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("addedCount", addedCount);
+        result.put("skipped", skipped);
         return result;
     }
 }
