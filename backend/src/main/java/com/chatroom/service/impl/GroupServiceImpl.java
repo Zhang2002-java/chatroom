@@ -63,6 +63,18 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
+    public void deleteGroup(Long groupId, Long operatorId) {
+        GroupInfo group = groupInfoMapper.selectById(groupId);
+        if (group == null) throw new ApiException("群组不存在");
+        if (!group.getOwnerId().equals(operatorId)) throw new ApiException("只有群主可以解散群组");
+
+        LambdaQueryWrapper<GroupMember> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(GroupMember::getGroupId, groupId);
+        groupMemberMapper.delete(wrapper);
+        groupInfoMapper.deleteById(groupId);
+    }
+
+    @Override
     public List<Map<String, Object>> getMyGroups(Long userId) {
         LambdaQueryWrapper<GroupMember> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(GroupMember::getUserId, userId);

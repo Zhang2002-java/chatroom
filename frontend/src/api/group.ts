@@ -9,3 +9,6 @@ export function addGroupMember(groupId: number, userId: number) {
 export function removeGroupMember(groupId: number, userId: number) {
   return api.delete(`/groups/${groupId}/members/${userId}`)
 }
+export function deleteGroup(groupId: number) {
+  return api.delete(`/groups/${groupId}`)
+}

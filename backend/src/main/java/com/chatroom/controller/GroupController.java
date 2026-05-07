@@ -46,6 +46,12 @@ public class GroupController {
         return Result.ok();
     }
 
+    @DeleteMapping("/{id}")
+    public Result<?> deleteGroup(@PathVariable Long id) {
+        groupService.deleteGroup(id, getCurrentUserId());
+        return Result.ok();
+    }
+
     private Long getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return (Long) auth.getPrincipal();
