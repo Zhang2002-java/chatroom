@@ -1,6 +1,9 @@
 package com.chatroom.websocket;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.chatroom.entity.GroupMember;
 import com.chatroom.entity.Message;
+import com.chatroom.mapper.GroupMemberMapper;
 import com.chatroom.mapper.MessageMapper;
 import com.chatroom.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -27,10 +30,13 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final MessageMapper messageMapper;
+    private final GroupMemberMapper groupMemberMapper;
 
-    public ChatWebSocketHandler(JwtTokenProvider jwtTokenProvider, MessageMapper messageMapper) {
+    public ChatWebSocketHandler(JwtTokenProvider jwtTokenProvider, MessageMapper messageMapper,
+                                GroupMemberMapper groupMemberMapper) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.messageMapper = messageMapper;
+        this.groupMemberMapper = groupMemberMapper;
     }
 
     @Override
@@ -111,11 +117,27 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 messageMapper.updateById(msg);
                 notifyStatusChange(senderId, msg.getId(), 2);
             }
-        }
-
-        WebSocketSession senderSession = userSessions.get(senderId);
-        if (senderSession != null && senderSession.isOpen()) {
-            sendMessage(senderSession, responseJson);
+            WebSocketSession senderSession = userSessions.get(senderId);
+            if (senderSession != null && senderSession.isOpen()) {
+                sendMessage(senderSession, responseJson);
+            }
+        } else {
+            // Group chat: broadcast to all online group members except sender
+            LambdaQueryWrapper<GroupMember> memberWrapper = new LambdaQueryWrapper<>();
+            memberWrapper.eq(GroupMember::getGroupId, receiverId);
+            java.util.List<GroupMember> members = groupMemberMapper.selectList(memberWrapper);
+            for (GroupMember member : members) {
+                if (member.getUserId().equals(senderId)) continue;
+                WebSocketSession memberSession = userSessions.get(member.getUserId());
+                if (memberSession != null && memberSession.isOpen()) {
+                    sendMessage(memberSession, responseJson);
+                }
+            }
+            // Echo to sender
+            WebSocketSession senderSession = userSessions.get(senderId);
+            if (senderSession != null && senderSession.isOpen()) {
+                sendMessage(senderSession, responseJson);
+            }
         }
     }
 

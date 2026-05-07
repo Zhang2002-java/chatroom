@@ -137,8 +137,6 @@ async function handleDeleteGroup() {
   }
 }
 
-const userStore = useUserStore()
-
 async function handleLeaveGroup() {
   if (!managingGroup.value || !userStore.userId) return
   try {
