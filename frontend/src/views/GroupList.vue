@@ -5,7 +5,7 @@
       <el-button @click="showCreateDialog = true" type="primary" size="small">创建群组</el-button>
     </div>
     <div v-if="groups.length === 0" class="empty">暂无群组</div>
-    <div v-for="g in groups" :key="g.groupId" class="group-item" @click="$router.push(`/home/chat/${g.groupId}`)">
+    <div v-for="g in groups" :key="g.groupId" class="group-item" @click="$router.push(`/home/chat/${g.groupId}?type=group`)">
       <el-avatar :size="40">{{ g.name[0] }}</el-avatar>
       <div class="info"><div class="name">{{ g.name }}</div><div class="role">{{ g.role === 'owner' ? '群主' : '成员' }}</div></div>
     </div>

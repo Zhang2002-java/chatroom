@@ -66,7 +66,7 @@ const filteredFriends = computed(() => {
 })
 
 function selectChat(id: number, type = 'private') {
-  router.push(`/home/chat/${id}`)
+  router.push(`/home/chat/${id}?type=${type}`)
 }
 
 async function loadFriends() {

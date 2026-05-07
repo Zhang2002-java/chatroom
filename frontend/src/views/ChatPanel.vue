@@ -56,7 +56,8 @@ function playMessageSound() {
 const currentChatTarget = computed(() => {
   const id = route.params.id
   if (!id) return null
-  return { id: Number(id), chatType: 'private' as const }
+  const type = route.query.type as string
+  return { id: Number(id), chatType: (type === 'group' ? 'group' : 'private') as 'private' | 'group' }
 })
 
 const chatTargetName = computed(() => {

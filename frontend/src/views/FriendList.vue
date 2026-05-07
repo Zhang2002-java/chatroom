@@ -28,6 +28,16 @@
           </div>
         </div>
       </el-tab-pane>
+      <el-tab-pane label="黑名单" :badge="blocked.length || ''" name="blocked">
+        <div v-if="blocked.length === 0" class="empty">黑名单为空</div>
+        <div v-for="b in blocked" :key="b.relationId" class="friend-item">
+          <el-avatar :src="b.avatar" :size="40">{{ b.nickname?.[0] }}</el-avatar>
+          <div class="info"><div class="name">{{ b.nickname }}</div></div>
+          <div class="actions">
+            <el-button type="success" size="small" @click="handleUnblock(b.relationId)">解除拉黑</el-button>
+          </div>
+        </div>
+      </el-tab-pane>
     </el-tabs>
     <AddFriendDialog v-model:visible="showAddDialog" />
   </div>
@@ -37,7 +47,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
-import { getFriends, acceptRequest, rejectRequest, deleteFriend, blockFriend } from '@/api/friend'
+import { getFriends, acceptRequest, rejectRequest, deleteFriend, blockFriend, unblockFriend } from '@/api/friend'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import AddFriendDialog from '@/components/AddFriendDialog.vue'
@@ -46,11 +56,12 @@ const router = useRouter()
 
 const route = useRoute()
 const chatStore = useChatStore()
-function goChat(userId: number) { router.push(`/home/chat/${userId}`) }
+function goChat(userId: number) { router.push(`/home/chat/${userId}?type=private`) }
 
 const activeTab = ref('friends')
 const friends = ref<any[]>([])
 const pending = ref<any[]>([])
+const blocked = ref<any[]>([])
 const showAddDialog = ref(false)
 
 async function loadFriends() {
@@ -58,6 +69,7 @@ async function loadFriends() {
     const res = await getFriends()
     friends.value = res.data.data.friends || []
     pending.value = res.data.data.pending || []
+    blocked.value = res.data.data.blocked || []
     chatStore.pendingFriendRequests = pending.value.length
   } catch (e) {}
 }
@@ -76,6 +88,7 @@ function onWsMessage(e: MessageEvent) {
 
 async function handleAccept(id: number) { await acceptRequest(id); ElMessage.success('已同意好友申请'); loadFriends() }
 async function handleReject(id: number) { await rejectRequest(id); ElMessage.info('已拒绝好友申请'); loadFriends() }
+async function handleUnblock(id: number) { await unblockFriend(id); ElMessage.success('已解除拉黑'); loadFriends() }
 async function handleDelete(id: number) {
   try {
     await ElMessageBox.confirm('确定要删除该好友吗？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })

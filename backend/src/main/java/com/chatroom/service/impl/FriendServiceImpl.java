@@ -134,6 +134,35 @@ public class FriendServiceImpl implements FriendService {
     }
 
     @Override
+    public void unblockFriend(Long relationId, Long currentUserId) {
+        FriendRelation relation = friendRelationMapper.selectById(relationId);
+        if (relation == null) throw new ApiException("好友关系不存在");
+        relation.setStatus(1);
+        friendRelationMapper.updateById(relation);
+    }
+
+    @Override
+    public List<Map<String, Object>> getBlockedList(Long userId) {
+        LambdaQueryWrapper<FriendRelation> wrapper = new LambdaQueryWrapper<>();
+        wrapper.and(w -> w.eq(FriendRelation::getUserId, userId).or().eq(FriendRelation::getFriendId, userId))
+               .eq(FriendRelation::getStatus, 2);
+        List<FriendRelation> relations = friendRelationMapper.selectList(wrapper);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (FriendRelation r : relations) {
+            Long blockedId = r.getUserId().equals(userId) ? r.getFriendId() : r.getUserId();
+            User blocked = userMapper.selectById(blockedId);
+            if (blocked != null) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("relationId", r.getId()); map.put("userId", blocked.getId());
+                map.put("username", blocked.getUsername()); map.put("nickname", blocked.getNickname());
+                map.put("avatar", blocked.getAvatar());
+                result.add(map);
+            }
+        }
+        return result;
+    }
+
+    @Override
     public List<Map<String, Object>> getPendingRequests(Long userId) {
         LambdaQueryWrapper<FriendRelation> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(FriendRelation::getFriendId, userId).eq(FriendRelation::getStatus, 0);

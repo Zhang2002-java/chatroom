@@ -4,14 +4,14 @@
     <el-tabs v-model="activeTab">
       <el-tab-pane label="搜索用户" name="users">
         <el-input v-model="userKeyword" placeholder="输入用户名搜索" @keyup.enter="searchUser" />
-        <div v-for="u in userResults" :key="u.id" class="search-item" @click="$router.push(`/home/chat/${u.id}`)">
+        <div v-for="u in userResults" :key="u.id" class="search-item" @click="$router.push(`/home/chat/${u.id}?type=private`)">
           <el-avatar :size="36">{{ u.nickname?.[0] }}</el-avatar>
           <div>{{ u.nickname }} (@{{ u.username }})</div>
         </div>
       </el-tab-pane>
       <el-tab-pane label="搜索消息" name="messages">
         <el-input v-model="msgKeyword" placeholder="输入关键词搜索" @keyup.enter="searchMessages" />
-        <div v-for="m in msgResults" :key="m.id" class="msg-item" @click="$router.push(`/home/chat/${m.senderId}`)">
+        <div v-for="m in msgResults" :key="m.id" class="msg-item" @click="$router.push(`/home/chat/${m.senderId}?type=${m.chatType || 'private'}`)">
           <div class="msg-sender">{{ m.senderId }}</div>
           <div class="msg-content">{{ m.content }}</div>
           <div class="msg-time">{{ new Date(m.createdAt).toLocaleString() }}</div>

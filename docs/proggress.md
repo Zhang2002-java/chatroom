@@ -50,6 +50,29 @@ Spring Boot 3.2.5 + Vue 3.4 + MySQL 8.0 网上聊天应用，求职作品项目�
 7. **聊天头像显示数字 ID** — 打开对话时主动请求用户信息填充 contacts
 8. **缺少对话列表** — 新建 ConversationList.vue 组件，集成到 ChatPanel 左侧
 
+## 测试覆盖
+
+### 后端测试（~30 个文件，~91 个用例）
+| 层级 | 文件 | 用例数 |
+|------|------|--------|
+| Service 单元测试（JUnit 5 + Mockito） | 6 | ~48 |
+| Controller 集成测试（@SpringBootTest + H2） | 7 | ~27 |
+| 工具类测试（JWT、异常、WebSocket） | 3 | ~16 |
+
+运行方式：IntelliJ IDEA 中右键 `src/test/java` → Run 'All Tests'，或 `mvn test`
+
+### 前端测试（13 个文件，61 个用例）
+| 层级 | 文件 | 用例数 |
+|------|------|--------|
+| Store 测试（Pinia） | 2 | 13 |
+| Router 测试 | 1 | 5 |
+| 组件/视图测试（Vitest + @vue/test-utils） | 9 | 38 |
+| API 层测试 | 1 | 5 |
+
+运行方式：`cd frontend && npm test`
+
+---
+
 ## 项目结构
 
 ```

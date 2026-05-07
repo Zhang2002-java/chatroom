@@ -47,12 +47,19 @@ public class FriendController {
         return Result.ok();
     }
 
+    @PutMapping("/{id}/unblock")
+    public Result<?> unblock(@PathVariable Long id) {
+        friendService.unblockFriend(id, getCurrentUserId());
+        return Result.ok();
+    }
+
     @GetMapping
     public Result<Map<String, Object>> getFriends() {
         Long userId = getCurrentUserId();
         Map<String, Object> data = new HashMap<>();
         data.put("friends", friendService.getFriendList(userId));
         data.put("pending", friendService.getPendingRequests(userId));
+        data.put("blocked", friendService.getBlockedList(userId));
         return Result.ok(data);
     }
 
