@@ -41,6 +41,11 @@ public class MessageController {
         return Result.ok();
     }
 
+    @GetMapping("/{id}/reads")
+    public Result<List<Map<String, Object>>> getReadUsers(@PathVariable Long id) {
+        return Result.ok(messageService.getReadUsers(id));
+    }
+
     private Long getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return (Long) auth.getPrincipal();

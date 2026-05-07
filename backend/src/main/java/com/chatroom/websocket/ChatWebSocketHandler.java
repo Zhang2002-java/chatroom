@@ -3,8 +3,10 @@ package com.chatroom.websocket;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.chatroom.entity.GroupMember;
 import com.chatroom.entity.Message;
+import com.chatroom.entity.MessageRead;
 import com.chatroom.mapper.GroupMemberMapper;
 import com.chatroom.mapper.MessageMapper;
+import com.chatroom.mapper.MessageReadMapper;
 import com.chatroom.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,12 +33,14 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final JwtTokenProvider jwtTokenProvider;
     private final MessageMapper messageMapper;
     private final GroupMemberMapper groupMemberMapper;
+    private final MessageReadMapper messageReadMapper;
 
     public ChatWebSocketHandler(JwtTokenProvider jwtTokenProvider, MessageMapper messageMapper,
-                                GroupMemberMapper groupMemberMapper) {
+                                GroupMemberMapper groupMemberMapper, MessageReadMapper messageReadMapper) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.messageMapper = messageMapper;
         this.groupMemberMapper = groupMemberMapper;
+        this.messageReadMapper = messageReadMapper;
     }
 
     @Override
@@ -171,18 +175,55 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         String chatType = json.get("chatType").asText();
         Long currentUserId = json.get("currentUserId").asLong();
 
-        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Message> wrapper =
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
-        wrapper.eq(Message::getSenderId, targetId)
-               .eq(Message::getReceiverId, currentUserId)
-               .eq(Message::getChatType, chatType)
-               .lt(Message::getStatus, 3);
+        if ("group".equals(chatType)) {
+            LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Message::getReceiverId, targetId)
+                   .eq(Message::getChatType, "group")
+                   .ne(Message::getSenderId, currentUserId);
+            java.util.List<Message> messages = messageMapper.selectList(wrapper);
+            for (Message msg : messages) {
+                LambdaQueryWrapper<MessageRead> readWrapper = new LambdaQueryWrapper<>();
+                readWrapper.eq(MessageRead::getMessageId, msg.getId())
+                           .eq(MessageRead::getUserId, currentUserId);
+                if (messageReadMapper.selectCount(readWrapper) == 0) {
+                    MessageRead mr = new MessageRead();
+                    mr.setMessageId(msg.getId());
+                    mr.setUserId(currentUserId);
+                    mr.setReadAt(LocalDateTime.now());
+                    messageReadMapper.insert(mr);
+                }
+            }
+            notifyGroupReadStatus(targetId, currentUserId);
+        } else {
+            LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Message::getSenderId, targetId)
+                   .eq(Message::getReceiverId, currentUserId)
+                   .eq(Message::getChatType, chatType)
+                   .lt(Message::getStatus, 3);
 
-        java.util.List<Message> unreadMessages = messageMapper.selectList(wrapper);
-        for (Message msg : unreadMessages) {
-            msg.setStatus(3);
-            messageMapper.updateById(msg);
-            notifyStatusChange(msg.getSenderId(), msg.getId(), 3);
+            java.util.List<Message> unreadMessages = messageMapper.selectList(wrapper);
+            for (Message msg : unreadMessages) {
+                msg.setStatus(3);
+                messageMapper.updateById(msg);
+                notifyStatusChange(msg.getSenderId(), msg.getId(), 3);
+            }
+        }
+    }
+
+    private void notifyGroupReadStatus(Long groupId, Long readerId) throws IOException {
+        LambdaQueryWrapper<GroupMember> memberWrapper = new LambdaQueryWrapper<>();
+        memberWrapper.eq(GroupMember::getGroupId, groupId);
+        java.util.List<GroupMember> members = groupMemberMapper.selectList(memberWrapper);
+        String notification = objectMapper.createObjectNode()
+                .put("type", "GROUP_READ")
+                .put("groupId", groupId)
+                .put("readerId", readerId)
+                .toString();
+        for (GroupMember member : members) {
+            WebSocketSession s = userSessions.get(member.getUserId());
+            if (s != null && s.isOpen()) {
+                sendMessage(s, notification);
+            }
         }
     }
 

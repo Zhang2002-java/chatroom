@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.chatroom.common.ApiException;
 import com.chatroom.entity.Message;
 import com.chatroom.mapper.MessageMapper;
+import com.chatroom.mapper.MessageReadMapper;
+import com.chatroom.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -22,6 +24,8 @@ import static org.mockito.Mockito.*;
 class MessageServiceImplTest {
 
     @Mock private MessageMapper messageMapper;
+    @Mock private MessageReadMapper messageReadMapper;
+    @Mock private UserMapper userMapper;
 
     @InjectMocks
     private MessageServiceImpl messageService;

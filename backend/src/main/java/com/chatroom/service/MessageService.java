@@ -9,4 +9,5 @@ public interface MessageService {
     Page<Message> getMessages(Long targetId, String chatType, int page, int size, Long currentUserId);
     List<Message> searchMessages(String keyword, Long currentUserId);
     void recallMessage(Long messageId, Long currentUserId);
+    List<Map<String, Object>> getReadUsers(Long messageId);
 }

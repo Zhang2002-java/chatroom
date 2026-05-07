@@ -4,20 +4,29 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.chatroom.common.ApiException;
 import com.chatroom.entity.Message;
+import com.chatroom.entity.MessageRead;
+import com.chatroom.entity.User;
 import com.chatroom.mapper.MessageMapper;
+import com.chatroom.mapper.MessageReadMapper;
+import com.chatroom.mapper.UserMapper;
 import com.chatroom.service.MessageService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class MessageServiceImpl implements MessageService {
 
     private final MessageMapper messageMapper;
+    private final MessageReadMapper messageReadMapper;
+    private final UserMapper userMapper;
 
-    public MessageServiceImpl(MessageMapper messageMapper) {
+    public MessageServiceImpl(MessageMapper messageMapper, MessageReadMapper messageReadMapper,
+                              UserMapper userMapper) {
         this.messageMapper = messageMapper;
+        this.messageReadMapper = messageReadMapper;
+        this.userMapper = userMapper;
     }
 
     @Override
@@ -58,5 +67,24 @@ public class MessageServiceImpl implements MessageService {
         }
         msg.setIsRecalled(1);
         messageMapper.updateById(msg);
+    }
+
+    @Override
+    public List<Map<String, Object>> getReadUsers(Long messageId) {
+        LambdaQueryWrapper<MessageRead> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(MessageRead::getMessageId, messageId);
+        List<MessageRead> reads = messageReadMapper.selectList(wrapper);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (MessageRead r : reads) {
+            User user = userMapper.selectById(r.getUserId());
+            if (user != null) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("userId", user.getId());
+                map.put("nickname", user.getNickname());
+                map.put("avatar", user.getAvatar());
+                result.add(map);
+            }
+        }
+        return result;
     }
 }

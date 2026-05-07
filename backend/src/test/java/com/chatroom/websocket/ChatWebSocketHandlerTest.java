@@ -1,7 +1,9 @@
 package com.chatroom.websocket;
 
 import com.chatroom.entity.Message;
+import com.chatroom.mapper.GroupMemberMapper;
 import com.chatroom.mapper.MessageMapper;
+import com.chatroom.mapper.MessageReadMapper;
 import com.chatroom.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,13 +23,15 @@ class ChatWebSocketHandlerTest {
 
     @Mock private JwtTokenProvider jwtTokenProvider;
     @Mock private MessageMapper messageMapper;
+    @Mock private GroupMemberMapper groupMemberMapper;
+    @Mock private MessageReadMapper messageReadMapper;
     @Mock private WebSocketSession session;
 
     private ChatWebSocketHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new ChatWebSocketHandler(jwtTokenProvider, messageMapper);
+        handler = new ChatWebSocketHandler(jwtTokenProvider, messageMapper, groupMemberMapper, messageReadMapper);
     }
 
     @Test

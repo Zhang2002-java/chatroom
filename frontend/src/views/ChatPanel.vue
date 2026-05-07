@@ -10,7 +10,7 @@
           <el-avatar :size="36">{{ chatTargetName?.[0] }}</el-avatar>
           <span>{{ chatTargetName }}</span>
         </div>
-        <MessageList :messages="messages" :contacts="contacts" />
+        <MessageList :messages="messages" :contacts="contacts" :read-users="readUsers" />
         <MessageInput @send="handleSend" />
       </template>
     </div>
@@ -22,7 +22,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
-import { getMessages } from '@/api/message'
+import { getMessages, getReadUsers } from '@/api/message'
 import api from '@/api/index'
 import ConversationList from '@/components/ConversationList.vue'
 import MessageList from '@/components/MessageList.vue'
@@ -33,6 +33,7 @@ const chatStore = useChatStore()
 const userStore = useUserStore()
 const messages = ref<any[]>([])
 const contacts = ref<Record<string, any>>({})
+const readUsers = ref<Record<number, any[]>>({})
 
 // Notification sound using Web Audio API
 let audioCtx: AudioContext | null = null
@@ -78,6 +79,10 @@ watch(currentChatTarget, async (target) => {
     // Fetch messages
     const res = await getMessages(target.id, target.chatType)
     messages.value = (res.data.data?.records || []).reverse()
+    // Load read users for group chats
+    if (target.chatType === 'group') {
+      loadReadUsers()
+    }
     // Mark messages as read when opening conversation
     chatStore.send({
       type: 'READ_CONVERSATION',
@@ -129,8 +134,19 @@ function onWsMessage(e: MessageEvent) {
     } else if (msg.type === 'STATUS') {
       const found = messages.value.find(m => m.id === msg.messageId)
       if (found) found.status = msg.status
+    } else if (msg.type === 'GROUP_READ') {
+      loadReadUsers()
     }
   } catch (e) { /* ignore */ }
+}
+
+async function loadReadUsers() {
+  for (const m of messages.value) {
+    try {
+      const res = await getReadUsers(m.id)
+      readUsers.value[m.id] = res.data.data || []
+    } catch { readUsers.value[m.id] = [] }
+  }
 }
 
 onMounted(() => {

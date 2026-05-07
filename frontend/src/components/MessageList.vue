@@ -6,6 +6,7 @@
       :key="msg.id"
       :message="msg"
       :sender="getSender(msg.senderId)"
+      :read-users="readUsers?.[msg.id]"
     />
   </div>
 </template>
@@ -14,7 +15,7 @@
 import { watch, ref, nextTick } from 'vue'
 import MessageItem from './MessageItem.vue'
 
-const props = defineProps<{ messages: any[]; contacts: Record<string, any> }>()
+const props = defineProps<{ messages: any[]; contacts: Record<string, any>; readUsers?: Record<number, any[]> }>()
 const listRef = ref<HTMLDivElement>()
 
 function getSender(senderId: number) {

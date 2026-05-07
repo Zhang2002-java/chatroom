@@ -19,6 +19,12 @@
       <div class="message-status" v-if="isSelf && !message.isRecalled">
         {{ statusText }}
       </div>
+      <div class="read-avatars" v-if="readUsers && readUsers.length > 0">
+        <el-avatar v-for="r in readUsers" :key="r.userId" :src="r.avatar" :size="18" :title="r.nickname">
+          {{ r.nickname?.[0] }}
+        </el-avatar>
+        <span class="read-count">{{ readUsers.length }} 人已读</span>
+      </div>
     </div>
   </div>
 </template>
@@ -31,6 +37,7 @@ import { Document } from '@element-plus/icons-vue'
 const props = defineProps<{
   message: any
   sender: { nickname: string; avatar: string }
+  readUsers?: any[]
 }>()
 
 const userStore = useUserStore()
@@ -63,4 +70,6 @@ function getFileName(path: string) {
 .is-self .message-bubble { background: #409eff; color: #fff; }
 .is-recalled .message-bubble { background: transparent; color: #999; border: 1px dashed #ddd; }
 .message-status { font-size: 11px; color: #bbb; text-align: right; margin-top: 2px; }
+.read-avatars { display: flex; align-items: center; gap: 2px; margin-top: 4px; justify-content: flex-end; }
+.read-count { font-size: 11px; color: #bbb; margin-left: 4px; }
 </style>
