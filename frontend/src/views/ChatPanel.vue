@@ -110,11 +110,16 @@ function onWsMessage(e: MessageEvent) {
   try {
     const msg = JSON.parse(e.data)
     if (msg.type === 'CHAT') {
-      // Only add if it belongs to current conversation
-      if (currentChatTarget.value && msg.senderId === currentChatTarget.value.id) {
-        messages.value.push(msg)
+      const target = currentChatTarget.value
+      if (target) {
+        const belongsToConversation = target.chatType === 'group'
+          ? msg.receiverId === target.id
+          : (msg.senderId === target.id && msg.receiverId === userStore.userId) ||
+            (msg.senderId === userStore.userId && msg.receiverId === target.id)
+        if (belongsToConversation) {
+          messages.value.push(msg)
+        }
       }
-      // Play sound for incoming messages from others
       if (msg.senderId !== userStore.userId) {
         playMessageSound()
       }
